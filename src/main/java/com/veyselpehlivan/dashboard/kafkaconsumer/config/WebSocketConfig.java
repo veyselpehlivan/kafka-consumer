@@ -1,24 +1,20 @@
 package com.veyselpehlivan.dashboard.kafkaconsumer.config;
 
-import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.messaging.simp.config.MessageBrokerRegistry;
-import org.springframework.web.socket.config.annotation.AbstractWebSocketMessageBrokerConfigurer;
 import org.springframework.web.socket.config.annotation.EnableWebSocketMessageBroker;
 import org.springframework.web.socket.config.annotation.StompEndpointRegistry;
+import org.springframework.web.socket.config.annotation.WebSocketMessageBrokerConfigurer;
 
 @Configuration
 @EnableWebSocketMessageBroker
-public class WebSocketConfig extends AbstractWebSocketMessageBrokerConfigurer {
+public class WebSocketConfig implements WebSocketMessageBrokerConfigurer {
 
-    @Value(value = "${websocket.broker}")
-    private String broker;
+    private String broker = "/dashboard";
 
-    @Value(value = "${websocket.prefix}")
-    private String prefix;
+    private String prefix = "/app";
 
-    @Value(value = "${websocket.endpoint}")
-    private String endpoint;
+    private String endpoint = "/jdisp-websocket-endpoint";
 
     @Override
     public void configureMessageBroker(MessageBrokerRegistry config) {
