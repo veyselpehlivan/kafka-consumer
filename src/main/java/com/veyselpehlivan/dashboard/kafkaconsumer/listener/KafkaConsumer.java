@@ -1,7 +1,9 @@
 package com.veyselpehlivan.dashboard.kafkaconsumer.listener;
 
 
-import com.veyselpehlivan.dashboard.kafkaconsumer.record.Record;
+import com.veyselpehlivan.dashboard.kafkaconsumer.model.Log;
+import com.veyselpehlivan.dashboard.kafkaconsumer.model.Record;
+import com.veyselpehlivan.dashboard.kafkaconsumer.repository.LogRepository;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.kafka.annotation.KafkaListener;
@@ -9,10 +11,7 @@ import org.springframework.kafka.listener.ConsumerSeekAware;
 import org.springframework.messaging.simp.SimpMessagingTemplate;
 import org.springframework.stereotype.Service;
 
-import java.util.ArrayList;
-import java.util.List;
-import java.util.Map;
-import java.util.TreeMap;
+import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,13 +23,16 @@ public class KafkaConsumer implements ConsumerSeekAware {
     ArrayList<String> detail = new ArrayList<String>();
 
     @Autowired
+    LogRepository logRepository;
+
+    @Autowired
     private SimpMessagingTemplate template;
 
     private String destinationMessagesIn = "/dashboard/stream-in";
     private String destinationMessagesOut = "/dashboard/stream-out";
 
 
-    @KafkaListener(topics = "data-in3", groupId = "group_id")
+    @KafkaListener(topics = "data-in6", groupId = "group_id")
     public void consume(String message){
 
         String[] parts = message.split("   ");
@@ -49,19 +51,40 @@ public class KafkaConsumer implements ConsumerSeekAware {
                 city.add(parts[i]);
             }
             else if (i%4 == 3){
+                parts[i] = parts[i].substring(0, parts[i].length() - 1);
                 detail.add(parts[i]);
             }
 
 
         }
 
+        //System.out.println(time.toString());
+
+        // Sending statistics to websocket
+
         List<Record> recordList = new ArrayList<>();
+        List<Log> logList = new ArrayList<>();
 
         for (int i = 0; i < time.size(); i++) {
             recordList.add(new Record(time.get(i), city.get(i)));
+
+            logList.add(new Log(i, time.get(i), level.get(i), city.get(i), detail.get(i)));
+
+
+
         }
 
 
+
+        logRepository.deleteAll();
+
+
+
+
+        logRepository.saveAll(logList);
+
+
+        //System.out.println("LOGLIST " + logList.size());
 
 
         Map<String,Map<String,Long>> map =
@@ -79,6 +102,12 @@ public class KafkaConsumer implements ConsumerSeekAware {
 
 
 
+        //Sending to Elasticsearch
+
+        //logRepository.findAll();
+
+
+
 
 
     }
@@ -91,8 +120,8 @@ public class KafkaConsumer implements ConsumerSeekAware {
     @Override
     public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
         assignments.keySet().stream()
-                .filter(partition -> "data-in3".equals(partition.topic()))
-                .forEach(partition -> callback.seekToBeginning("data-in3", partition.partition()));
+                .filter(partition -> "data-in6".equals(partition.topic()))
+                .forEach(partition -> callback.seekToBeginning("data-in6", partition.partition()));
     }
 
     @Override

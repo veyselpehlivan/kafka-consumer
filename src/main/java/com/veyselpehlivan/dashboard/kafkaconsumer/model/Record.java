@@ -1,4 +1,4 @@
-package com.veyselpehlivan.dashboard.kafkaconsumer.record;
+package com.veyselpehlivan.dashboard.kafkaconsumer.model;
 
 public class Record {
 
