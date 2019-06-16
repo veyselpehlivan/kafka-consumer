@@ -2,7 +2,6 @@ package com.veyselpehlivan.dashboard.kafkaconsumer.listener;
 
 
 import com.veyselpehlivan.dashboard.kafkaconsumer.model.Log;
-import com.veyselpehlivan.dashboard.kafkaconsumer.model.Record;
 import com.veyselpehlivan.dashboard.kafkaconsumer.repository.LogRepository;
 import org.apache.kafka.common.TopicPartition;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -30,11 +29,13 @@ public class KafkaConsumer implements ConsumerSeekAware {
 
     private String destinationMessagesIn = "/dashboard/stream-in";
     private String destinationMessagesOut = "/dashboard/stream-out";
+    private String topic = "data-in6";
 
 
     @KafkaListener(topics = "data-in6", groupId = "group_id")
     public void consume(String message){
 
+        // Processing of message
         String[] parts = message.split("   ");
 
         for (int i=0; i<parts.length; i++) {
@@ -58,57 +59,32 @@ public class KafkaConsumer implements ConsumerSeekAware {
 
         }
 
-        //System.out.println(time.toString());
-
-        // Sending statistics to websocket
-
-        List<Record> recordList = new ArrayList<>();
         List<Log> logList = new ArrayList<>();
-
         for (int i = 0; i < time.size(); i++) {
-            recordList.add(new Record(time.get(i), city.get(i)));
-
             logList.add(new Log(i, time.get(i), level.get(i), city.get(i), detail.get(i)));
-
-
 
         }
 
 
-
+        // To prevent duplicated data in elasticsearch
         logRepository.deleteAll();
-
-
-
-
+        // Saving logs to elasticsearch
         logRepository.saveAll(logList);
 
-
-        //System.out.println("LOGLIST " + logList.size());
-
-
+        // Calculation of log counts of cities in a day
         Map<String,Map<String,Long>> map =
-                recordList.stream()
-                        .collect(Collectors.groupingBy(e -> e.getTime(), TreeMap::new,
-                                Collectors.groupingBy(x -> x.getCity(), Collectors.counting()))
+                logList.stream()
+                        .collect(Collectors.groupingBy(e -> e.getTimeStamp(), TreeMap::new,
+                                Collectors.groupingBy(x -> x.getCityName(), Collectors.counting()))
                         );
 
 
 
-
+        //For showing messages on frontend
         map.forEach((k,v)-> v.forEach((a,b)-> template.convertAndSend(destinationMessagesIn, k + " " + a + " " + b)));
 
+        //For adding data to chart
         map.forEach((k,v)-> v.forEach((a,b)-> template.convertAndSend(destinationMessagesOut, k + " " + a + " " + b)));
-
-
-
-        //Sending to Elasticsearch
-
-        //logRepository.findAll();
-
-
-
-
 
     }
 
@@ -117,11 +93,12 @@ public class KafkaConsumer implements ConsumerSeekAware {
 
     }
 
+    // This method has same meaning with -from-beginning
     @Override
     public void onPartitionsAssigned(Map<TopicPartition, Long> assignments, ConsumerSeekCallback callback) {
         assignments.keySet().stream()
-                .filter(partition -> "data-in6".equals(partition.topic()))
-                .forEach(partition -> callback.seekToBeginning("data-in6", partition.partition()));
+                .filter(partition -> topic.equals(partition.topic()))
+                .forEach(partition -> callback.seekToBeginning(topic, partition.partition()));
     }
 
     @Override
